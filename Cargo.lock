@@ -179,6 +179,7 @@ dependencies = [
  "clap",
  "html_parser",
  "regex",
+ "serde_json",
 ]
 
 [[package]]
