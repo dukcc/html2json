@@ -1,6 +1,5 @@
 use clap::Parser;
-use html_parser::{Dom, Result};
-use regex::Regex;
+use html_parser::{Dom, Node, Result};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -13,14 +12,33 @@ struct Args {
     exclude: Option<Vec<String>>,
 }
 
-fn preprocess_html(html: &str) -> String {
-    let mut cleaned_html = html.to_string();
+fn preprocess_html(dom: &mut Dom, exclude_tags: &Option<Vec<String>>) {
+    if let Some(tags) = exclude_tags {
+        dom.children.retain(|node| !should_exclude(node, tags));
+        for node in dom.children.iter_mut() {
+            remove_excluded_tags(node, tags);
+        }
+    }
+}
 
-    let doctype_pattern = r#"<!DOCTYPE[^>]*>"#;
-    let re_doctype = Regex::new(doctype_pattern).unwrap();
-    cleaned_html = re_doctype.replace_all(&cleaned_html, "").into_owned();
+fn should_exclude(node: &Node, exclude_tags: &[String]) -> bool {
+    if let Node::Element(element) = node {
+        return exclude_tags
+            .iter()
+            .any(|tag| tag.eq_ignore_ascii_case(&element.name));
+    }
+    false
+}
 
-    cleaned_html
+fn remove_excluded_tags(node: &mut Node, exclude_tags: &[String]) {
+    if let Node::Element(element) = node {
+        element
+            .children
+            .retain(|child| !should_exclude(child, exclude_tags));
+        for child in element.children.iter_mut() {
+            remove_excluded_tags(child, exclude_tags);
+        }
+    }
 }
 
 fn main() -> Result<()> {
@@ -30,9 +48,10 @@ fn main() -> Result<()> {
 
     let html_content = std::fs::read_to_string(&args.file)?;
 
-    let cleaned_html = preprocess_html(&html_content);
+    let mut dom = Dom::parse(&html_content)?;
 
-    let dom = Dom::parse(&cleaned_html)?;
+    preprocess_html(&mut dom, &args.exclude);
+
     let json = dom.to_json_pretty()?;
     println!("Wrote output to: {:?}", &output_path);
 
