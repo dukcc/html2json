@@ -1,0 +1,9 @@
+[package]
+name = "html2json"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.13", features = ["derive"] }
+html_parser = "0.7.0"
+regex = "1.10.6"
